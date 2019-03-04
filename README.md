@@ -9,3 +9,10 @@
 
 * simpsonsworld.com
 * disneynow.go.com
+
+# Dependencys
+
+* ffmpeg
+* mkvmerge
+* subtitleedit
+* ccextractor* (Not currently used but will be soon)
