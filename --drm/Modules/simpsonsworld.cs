@@ -7,10 +7,23 @@ using static __drm.Common;
 
 namespace __drm.Modules {
     public class simpsonsworld {
-        public simpsonsworld() {
+        public override string ToString() {
+            Help(new[] {
+                "URL can be the Episode Guide Page (Has All Seasons) or Episode Page.",
+                "Providing the Episode Guide Page (with --season) URL will download all episodes of that season.",
+                "--quality ('best'[str] or height[int])",
+                "--season ([int], only used if you provide the Episode Guide Page: simpsonsworld.com/browse/episodes)",
+                "--episode ([int], when used on the Episode Guide Page, it will skip to the set episode and download from there on)",
+                "--ap-msoid ([str], required)",
+                "--ap-username ([str], only required if theres no cached ap data)",
+                "--ap-password ([str], only required if theres no cached ap data)"
+            });
+            return null;
+        }
+        public void Start() {
             SetTitle(Module.SimpsonsWorld);
 
-            if(Arguments.Season != -1) {
+            if (Arguments.Season != -1) {
                 DownloadSeason(Arguments.URL, Arguments.Season);
             } else {
                 string EpisodeID = Arguments.URL.Substring(Arguments.URL.IndexOf("/video/") + 7);

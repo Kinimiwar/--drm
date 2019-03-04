@@ -33,6 +33,9 @@ namespace __drm {
             }
             Directory.Delete(target_dir, false);
         }
+        public static void Help(string[] Entries) {
+            Logger.Info("CLI Switches:\n " + string.Join("\n ", Entries));
+        }
 
         public static dynamic Fetch(string URL, string Referer = null, string ReturnAs = "string") {
             if (!URL.StartsWith("http")) {

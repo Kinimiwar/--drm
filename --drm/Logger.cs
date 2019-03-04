@@ -3,7 +3,7 @@
 namespace __drm {
     class Logger {
         private static void L(string msg) {
-            Console.WriteLine(" " + msg);
+            Console.WriteLine(msg);
             Console.ResetColor();
         }
         public static void Error(string msg) {

@@ -28,19 +28,16 @@ namespace __drm.Modules {
             public string TV_EpisodeTitle_Serial => Regex.Replace(TV_EpisodeTitle, "[/\\*!?,.\'\"()<>:|]", string.Empty).Replace(" ", ".");
         }
         public override string ToString() {
-            Logger.Debug(
-                "CLI Switches:\n" +
-                "  " + string.Join("\n  ", new[] {
-                    "URL can be the TV Show Page, Season Page or Episode Page.",
-                    "Providing a TV Show Page (with --season) or a Season Page URL will download all episodes of that season.",
-                    "--quality ('best'[str] or height[int])",
-                    "--season ([int], only used if you provide the TV Show Page e.x. disneynow.go.com/shows/phineas-and-ferb)",
-                    "--episode ([int], when used on a TV Show or Season page, it will skip to the set episode and download from there on)",
-                    "--ap-username ([str], required for most episodes, and only required to be used if theres no cached ap data)",
-                    "--ap-password ([str], required for most episodes, and only required to be used if theres no cached ap data)",
-                    "--ap-msoid ([str], required for most episodes, required even if there is cached data)"
-                })
-            );
+            Help(new[] {
+                "URL can be the TV Show Page, Season Page or Episode Page.",
+                "Providing a TV Show Page (with --season) or a Season Page URL will download all episodes of that season.",
+                "--quality ('best'[str] or height[int])",
+                "--season ([int], only used if you provide the TV Show Page e.x. disneynow.go.com/shows/phineas-and-ferb)",
+                "--episode ([int], when used on a TV Show or Season page, it will skip to the set episode and download from there on)",
+                "--ap-msoid ([str], required for most episodes, required even if there is cached data)",
+                "--ap-username ([str], required for most episodes, and only required to be used if theres no cached ap data)",
+                "--ap-password ([str], required for most episodes, and only required to be used if theres no cached ap data)"
+            });
             return null;
         }
         public void Start() {
