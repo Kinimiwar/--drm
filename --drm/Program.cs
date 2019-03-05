@@ -28,6 +28,9 @@ namespace __drm {
             if (t.Contains("disneynow.go.com")) {
                 new disneynow().Start();
             }
+            if (t.Contains("adultswim.com")) {
+                new adultswim().Start();
+            }
             Console.WriteLine("\nFinished...");
             Console.ReadLine();
         }

@@ -78,6 +78,7 @@
       <SubType>Component</SubType>
     </Compile>
     <Compile Include="Logger.cs" />
+    <Compile Include="Modules\adultswim.cs" />
     <Compile Include="Modules\disneynow.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

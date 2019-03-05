@@ -4,6 +4,7 @@ using System.IO;
 using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
+using static __drm.Common;
 
 namespace __drm {
     /// <summary>
@@ -11,7 +12,6 @@ namespace __drm {
     /// Created by twitter.com/PRAGMA
     /// </summary>
     class AdobeAuthSP {
-        private static CookieAwareWebClient wc = new CookieAwareWebClient();
 
         // Public
         public string REQUESTERID = null;
@@ -177,7 +177,7 @@ namespace __drm {
                 return null;
             }
             try {
-                string shortToken = new CookieAwareWebClient() {
+                wc = new CookieAwareWebClient() {
                     Encoding = Encoding.UTF8,
                     Headers = {{
                         HttpRequestHeader.UserAgent, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/72.0.3626.109 Safari/537.36"
@@ -194,14 +194,15 @@ namespace __drm {
                     },{
                         "ap_z", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/72.0.3626.109 Safari/537.36"
                     }}
-                }.UploadString(
+                };
+                string shortToken = wc.UploadString(
                     "https://sp.auth.adobe.com/adobe-services/shortAuthorize",
                     string.Join("&", new[] {
-                    "session_guid=" + WebUtility.UrlEncode(Regex.Match(Tokens.N, "<simpleTokenAuthenticationGuid>(.*?)</simpleTokenAuthenticationGuid>").Groups[1].Value),
-                    "hashed_guid=false",
-                    "requestor_id=" + REQUESTERID,
-                    "authz_token=" + WebUtility.UrlEncode(Tokens.Z),
-                    "userMeta=1"
+                        "session_guid=" + WebUtility.UrlEncode(Regex.Match(Tokens.N, "<simpleTokenAuthenticationGuid>(.*?)</simpleTokenAuthenticationGuid>").Groups[1].Value),
+                        "hashed_guid=false",
+                        "requestor_id=" + REQUESTERID,
+                        "authz_token=" + WebUtility.UrlEncode(Tokens.Z)
+                        //"userMeta=1"
                     })
                 );
                 if (string.IsNullOrEmpty(shortToken)) {

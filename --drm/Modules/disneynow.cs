@@ -226,33 +226,11 @@ namespace __drm.Modules {
                 }
                 Match selected = Choice == "best" ? resolutions.First() : resolutions.ElementAt(int.Parse(Choice) - 1);
                 Logger.Info("VIDEO: " + selected.Groups[1].Value + "p @ " + selected.Groups[2].Value + " bandwidth");
-                string OutputFileName = Episode.Name_Serial + ".S" + Episode.TV_Season_Serial + "E" + Episode.TV_Episode_Serial + "." + Episode.TV_EpisodeTitle_Serial + "." + selected.Groups[1].Value + "p.WEB.[CODEC]";
+                string OutputFileName = Episode.Name_Serial + ".S" + Episode.TV_Season_Serial + "E" + Episode.TV_Episode_Serial + "." + Episode.TV_EpisodeTitle_Serial + ".[QUALITY]p.WEB.[CODEC]";
                 DownloadM3U8withMultiThreading(
                     selected.Groups[3].Value,
                     OutputFileName
                 );
-                string mediaInfo = string.Empty;
-                using (MediaInfo.DotNetWrapper.MediaInfo mi = new MediaInfo.DotNetWrapper.MediaInfo()) {
-                    mi.Open("output/" + OutputFileName + ".mkv");
-                    mi.Option("Complete", "0");
-                    mediaInfo = mi.Inform().Replace("\r", string.Empty).TrimEnd();
-                }
-                Dictionary<string, string>[] mediaInfoBlocksSplit = mediaInfo.Split(new string[] { "\n\n" }, StringSplitOptions.RemoveEmptyEntries).Select(
-                    block => {
-                        return block.Split('\n').Where(l => !l.StartsWith("Complete name ")).Select(
-                            line => {
-                                Match mc = Regex.Match(line, "^(((?!\\s{2}).)*)[^:]*: (.*)");
-                                return new KeyValuePair<string, string>(mc.Groups[1].Value.Trim(), mc.Groups[3].Value.Trim());
-                            }
-                        ).ToDictionary(x => x.Key, x => x.Value);
-                    }
-                ).ToArray();
-                Dictionary<string, string> mediaInfo_GENERAL = mediaInfoBlocksSplit[0];
-                Dictionary<string, string> mediaInfo_VIDEO = mediaInfoBlocksSplit[1];
-                Dictionary<string, string>[] mediaInfo_AUDIOS = mediaInfoBlocksSplit.Where(block => block.Any(x => x.Key == "Channel(s)")).ToArray();
-                Dictionary<string, string>[] mediaInfo_OTHER = mediaInfoBlocksSplit.Skip(3).ToArray();
-                File.Move("output/" + OutputFileName + ".mkv", "output/" + OutputFileName.Replace("[CODEC]", mediaInfo_VIDEO.ContainsKey("Writing library") && mediaInfo_VIDEO["Writing library"].StartsWith("x264") ? "x264" : mediaInfo_VIDEO["Format"].Replace("AVC", "H.264")) + "-PRAGMA.mkv");
-
                 Console.WriteLine("Done!");
             }
             return true;

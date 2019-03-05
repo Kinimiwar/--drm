@@ -15,9 +15,17 @@ using System.Xml;
 namespace __drm {
     class Common {
         public static string EXEDirectory = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
+        public static CookieAwareWebClient wc = new CookieAwareWebClient() {
+            Encoding = Encoding.UTF8,
+            Headers = {{
+                HttpRequestHeader.UserAgent,
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/72.0.3626.119 Safari/537.36"
+            }}
+        };
         public enum Module {
-            SimpsonsWorld,
-            DisneyNow
+            AdultSwim,
+            DisneyNow,
+            SimpsonsWorld
         }
         public static void SetTitle(Module m) => Console.Title = "--drm | Module: " + m.ToString() + " " + Arguments.URL;
         public static string AskInput(string query) {
@@ -43,16 +51,7 @@ namespace __drm {
             }
             int Failures = 0;
             do {
-                using (CookieAwareWebClient wc = new CookieAwareWebClient() {
-                    Encoding = Encoding.UTF8,
-                    Headers = {{
-                        HttpRequestHeader.UserAgent,
-                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/72.0.3626.119 Safari/537.36"
-                    },{
-                        HttpRequestHeader.Referer,
-                        Referer ?? new Uri(URL).Host
-                    }}
-                })
+                wc.Headers.Add(HttpRequestHeader.Referer, Referer ?? new Uri(URL).Host);
                 using (Stream s = wc.OpenRead(URL))
                 using (StreamReader sr = new StreamReader(wc.ResponseHeaders["Content-Encoding"] == "gzip" ? new GZipStream(s, CompressionMode.Decompress) : s)) {
                     string text = sr.ReadToEnd();
@@ -86,6 +85,36 @@ namespace __drm {
                 Directory.CreateDirectory(dir);
             }
         }
+
+        public static string ChooseResolutionFromM3U8(string M3U8Url) {
+            string M3U8Content = new WebClient().DownloadString(M3U8Url);
+            MatchCollection Streams = Regex.Matches(M3U8Content, "(#EXT-X-STREAM.*)\\s(.*)");
+            List<(int resolution, int bandwidth, string url)> Resolutions = new List<(int, int, string)>();
+            foreach (Match Stream in Streams) {
+                string INFO = Stream.Groups[1].Value;
+                Resolutions.Add((int.Parse(Regex.Match(INFO, "RESOLUTION=[^x]*x([^,]*)").Groups[1].Value), int.Parse(Regex.Match(INFO, "BANDWIDTH=([^,]*)").Groups[1].Value), Stream.Groups[2].Value));
+            }
+            IOrderedEnumerable<(int resolution, int bandwidth, string url)> OrderedResolutions = Resolutions.OrderByDescending(x => x.bandwidth).OrderByDescending(x => x.resolution);
+            string Choice = string.Empty;
+            bool CLIChoiceInvalid = Arguments.Quality != null && Arguments.Quality != "best" && !OrderedResolutions.Cast<Match>().Any(x => x.Groups[2].Value == Arguments.Quality);
+            if (Arguments.Quality == null || CLIChoiceInvalid) {
+                if (CLIChoiceInvalid) {
+                    Logger.Error("--quality value \"" + Arguments.Quality + "\" is not valid\n Please choose a new one below.");
+                }
+                VideoTracks(OrderedResolutions.Select(res => new[] { res.resolution.ToString(), res.bandwidth.ToString() }).ToArray());
+                Choice = AskInput("Which resolution do you wish to download? (use # or 'best')").Trim('#');
+            } else {
+                Choice = Arguments.Quality;
+            }
+            var Selected = Choice == "best" ? OrderedResolutions.First() : OrderedResolutions.ElementAt(int.Parse(Choice) - 1);
+            if(!Selected.url.StartsWith("http")) {
+                Selected.url = M3U8Url.Substring(0, M3U8Url.LastIndexOf('/') + 1) + Selected.url;
+            }
+            Logger.Info("VIDEO: " + Selected.resolution + "p @ " + Selected.bandwidth + " bandwidth");
+            Logger.Debug("M3U8: " + Selected.url);
+            return Selected.url;
+        }
+
         public static void DownloadSRT(string srturl) {
             Logger.Debug("Downloading Subtitle: " + Path.GetFileName(srturl));
             PrepareDirectory(new[] { "temp" });
@@ -115,7 +144,7 @@ namespace __drm {
                 Regex.Matches(m3u8res, "#EXT-X-KEY:METHOD=AES-128,URI=\"([^\"]*)").Cast<Match>().Select(x => x.Groups[1].Value).Distinct(),
                 keyurl => {
                     string fn = "temp/keys/" + keyurl.GetHashCode().ToString().Replace("-", "m") + ".key";
-                    new WebClient().DownloadFile(keyurl, fn);
+                    new WebClient().DownloadFile((!keyurl.StartsWith("http") ? URL.Substring(0, URL.LastIndexOf('/') + 1) : string.Empty) + keyurl, fn);
                     keyMap.TryAdd(keyurl, fn.Replace("temp/", string.Empty));
                 }
             );
@@ -128,8 +157,16 @@ namespace __drm {
                 Regex.Matches(m3u8res, "#EXTINF:.*\\s(.*)").Cast<Match>().Select(x => x.Groups[1].Value).Distinct(),
                 ts => {
                     string fn = "temp/segments/" + ts.GetHashCode().ToString().Replace("-", "m") + ".ts";
-                    new WebClient().DownloadFile(ts, fn);
-                    segMap.TryAdd(ts, fn.Replace("temp/", string.Empty));
+                    bool downloaded = false;
+                    while (!downloaded) {
+                        try {
+                            new WebClient().DownloadFile((!ts.StartsWith("http") ? URL.Substring(0, URL.LastIndexOf('/') + 1) : string.Empty) + ts, fn);
+                            segMap.TryAdd(ts, fn.Replace("temp/", string.Empty));
+                            downloaded = true;
+                        } catch (Exception ex) {
+                            Logger.Error("Failed while downloading \"" + ts + "\", Retrying, Error Message: " + ex.Message);
+                        }
+                    }
                 }
             );
             foreach (KeyValuePair<string, string> ts in segMap) {
@@ -152,6 +189,28 @@ namespace __drm {
             if (RunEXE("mkvmerge/mkvmerge.exe", "--output \"" + Path.Combine(EXEDirectory, "output", OutFileName.Replace("/", "-") + ".mkv") + "\" \"" + Path.Combine(EXEDirectory, "temp", ".ts") + "\" --default-track 0:false " + (File.Exists("temp/.chapters") ? "--chapters \"" + Path.Combine(EXEDirectory, "temp", ".chapters") + "\"" : string.Empty) + " " + (File.Exists("temp/.srt") ? "--sub-charset 0:UTF-8 \"" + Path.Combine(EXEDirectory, "temp", ".srt") + "\"" : string.Empty)) != 0) {
                 return;
             }
+            string mediaInfo = string.Empty;
+            using (MediaInfo.DotNetWrapper.MediaInfo mi = new MediaInfo.DotNetWrapper.MediaInfo()) {
+                mi.Open("output/" + OutFileName + ".mkv");
+                mi.Option("Complete", "0");
+                mediaInfo = mi.Inform().Replace("\r", string.Empty).TrimEnd();
+            }
+            Dictionary<string, string>[] mediaInfoBlocksSplit = mediaInfo.Split(new string[] { "\n\n" }, StringSplitOptions.RemoveEmptyEntries).Select(
+                block => {
+                    return block.Split('\n').Where(l => !l.StartsWith("Complete name ")).Select(
+                        line => {
+                            Match mc = Regex.Match(line, "^(((?!\\s{2}).)*)[^:]*: (.*)");
+                            return new KeyValuePair<string, string>(mc.Groups[1].Value.Trim(), mc.Groups[3].Value.Trim());
+                        }
+                    ).ToDictionary(x => x.Key, x => x.Value);
+                }
+            ).ToArray();
+            Dictionary<string, string> mediaInfo_GENERAL = mediaInfoBlocksSplit[0];
+            Dictionary<string, string> mediaInfo_VIDEO = mediaInfoBlocksSplit[1];
+            Dictionary<string, string>[] mediaInfo_AUDIOS = mediaInfoBlocksSplit.Where(block => block.Any(x => x.Key == "Channel(s)")).ToArray();
+            Dictionary<string, string>[] mediaInfo_OTHER = mediaInfoBlocksSplit.Skip(3).ToArray();
+            File.Move("output/" + OutFileName + ".mkv", "output/" + OutFileName.Replace("[QUALITY]", string.Join(string.Empty, mediaInfo_VIDEO["Height"].Select(x => char.IsDigit(x) ? x.ToString() : string.Empty))).Replace("[CODEC]", mediaInfo_VIDEO.ContainsKey("Writing library") && mediaInfo_VIDEO["Writing library"].StartsWith("x264") ? "x264" : mediaInfo_VIDEO["Format"].Replace("AVC", "H.264")) + "-PRAGMA.mkv");
+
             // Cleanup files no longer needed
             // todo: setup files in such a way to be multi-threaded supported and not conflict with other downloads at same time
             File.Delete("temp/.ts");

@@ -28,10 +28,10 @@
                         case "trackType":
                         TrackType = v;
                         break;
-                        case "ap-username":
+                        case "ap-user":
                         APUsername = v;
                         break;
-                        case "ap-password":
+                        case "ap-pass":
                         APPassword = v;
                         break;
                         case "ap-msoid":
