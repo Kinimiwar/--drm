@@ -7,6 +7,7 @@
 
 ### Supported Websites
 
+* adultswim.com
 * disneynow.go.com
 * simpsonsworld.com
 
